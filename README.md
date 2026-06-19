@@ -29,26 +29,34 @@ Prvni verze je pripravena jako zaklad pro dalsi rozvoj a nahrani na GitHub.
 
 ## Automaticke generovani
 
-Repo obsahuje i jednoduchy generator, ktery umi pravidelne vytvaret nove texty pres OpenAI API a automaticky je commitovat a pushovat do tohoto repozitare.
+Repo obsahuje i jednoduchy generator, ktery umi pravidelne vytvaret nove texty pres libovolne OpenAI kompatibilni API a automaticky je commitovat a pushovat do tohoto repozitare.
 
 ### Nastaveni
 
 1. Nainstaluj zavislosti:
-	`pip install -r requirements.txt`
+	`python3 --version`
 2. Zkopiruj `.env.example` do `.env` nebo nastav promenne primo v shellu.
 3. Ujisti se, ze mas v gitu nastaveny `user.name` a `user.email`.
 
 Minimalni promenne:
 
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
+- `RAPBERG_API_URL`
+- `RAPBERG_API_AUTH_TOKEN`
+- `RAPBERG_MODEL`
 
 Volitelne promenne:
 
-- `OPENAI_BASE_URL`
+- `RAPBERG_API_AUTH_HEADER`
+- `RAPBERG_API_AUTH_SCHEME`
+- `RAPBERG_REQUEST_FORMAT`
 - `RAPBERG_INTERVAL_SECONDS`
 - `RAPBERG_OUTPUT_DIR`
 - `RAPBERG_GIT_BRANCH`
+
+Podporovane formaty requestu:
+
+- `chat_completions` pro endpointy ve stylu `/v1/chat/completions`
+- `responses` pro endpointy ve stylu `/v1/responses`
 
 ### Spusteni
 
@@ -65,3 +73,13 @@ Nepretrzity rezim:
 `python3 automation/generate_and_push.py`
 
 Generator uklada nove texty do `lyrics/generated/`.
+
+Priklad pro bezne OpenAI kompatibilni API:
+
+`RAPBERG_API_URL=https://tvoje-api.example/v1/chat/completions`
+
+`RAPBERG_API_AUTH_TOKEN=tvuj-token`
+
+`RAPBERG_MODEL=tvuj-model`
+
+`RAPBERG_REQUEST_FORMAT=chat_completions`

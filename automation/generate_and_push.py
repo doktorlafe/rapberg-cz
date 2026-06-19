@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import time
+from urllib import error, request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,7 +14,10 @@ from pathlib import Path
 
 @dataclass
 class Settings:
-    api_key: str
+    api_url: str
+    api_auth_token: str
+    api_auth_header: str
+    api_auth_scheme: str
     model: str
     repo_path: Path
     output_dir: Path
@@ -21,12 +26,12 @@ class Settings:
     interval_seconds: int
     temperature: float
     max_tokens: int
-    base_url: str | None
+    request_format: str
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate Rapberg CZ lyrics with the OpenAI API and push them to GitHub."
+        description="Generate Rapberg CZ lyrics with a configurable text API and push them to GitHub."
     )
     parser.add_argument(
         "--once",
@@ -54,8 +59,11 @@ def load_settings() -> Settings:
     output_dir = repo_path / os.getenv("RAPBERG_OUTPUT_DIR", "lyrics/generated")
     prompt_path = repo_path / "prompts" / "rap_prompt.txt"
     return Settings(
-        api_key=env("OPENAI_API_KEY"),
-        model=env("OPENAI_MODEL", "gpt-5.4"),
+        api_url=env("RAPBERG_API_URL"),
+        api_auth_token=env("RAPBERG_API_AUTH_TOKEN"),
+        api_auth_header=env("RAPBERG_API_AUTH_HEADER", "Authorization"),
+        api_auth_scheme=os.getenv("RAPBERG_API_AUTH_SCHEME", "Bearer"),
+        model=env("RAPBERG_MODEL", "gpt-5.4"),
         repo_path=repo_path,
         output_dir=output_dir,
         prompt_path=prompt_path,
@@ -63,7 +71,7 @@ def load_settings() -> Settings:
         interval_seconds=int(os.getenv("RAPBERG_INTERVAL_SECONDS", "3600")),
         temperature=float(os.getenv("RAPBERG_TEMPERATURE", "1.0")),
         max_tokens=int(os.getenv("RAPBERG_MAX_TOKENS", "1800")),
-        base_url=os.getenv("OPENAI_BASE_URL") or None,
+        request_format=os.getenv("RAPBERG_REQUEST_FORMAT", "chat_completions"),
     )
 
 
@@ -84,29 +92,95 @@ def load_dotenv(env_path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
-def build_client(settings: Settings):
-    try:
-        from openai import OpenAI
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "Missing dependency 'openai'. Install it with 'pip install -r requirements.txt'."
-        ) from exc
+def build_headers(settings: Settings) -> dict[str, str]:
+    headers = {
+        "Content-Type": "application/json",
+    }
+    auth_value = settings.api_auth_token
+    if settings.api_auth_scheme:
+        auth_value = f"{settings.api_auth_scheme} {auth_value}"
+    headers[settings.api_auth_header] = auth_value
+    return headers
 
-    kwargs = {"api_key": settings.api_key}
-    if settings.base_url:
-        kwargs["base_url"] = settings.base_url
-    return OpenAI(**kwargs)
+
+def build_payload(settings: Settings, prompt: str) -> dict:
+    if settings.request_format == "responses":
+        return {
+            "model": settings.model,
+            "input": prompt,
+            "temperature": settings.temperature,
+            "max_output_tokens": settings.max_tokens,
+        }
+
+    if settings.request_format == "chat_completions":
+        return {
+            "model": settings.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            "temperature": settings.temperature,
+            "max_tokens": settings.max_tokens,
+        }
+
+    raise RuntimeError(
+        "Unsupported RAPBERG_REQUEST_FORMAT. Use 'chat_completions' or 'responses'."
+    )
+
+
+def extract_response_text(settings: Settings, response_data: dict) -> str:
+    if settings.request_format == "responses":
+        text = response_data.get("output_text", "").strip()
+        if text:
+            return text
+
+        output = response_data.get("output", [])
+        for item in output:
+            for content in item.get("content", []):
+                text = content.get("text", "").strip()
+                if text:
+                    return text
+
+    if settings.request_format == "chat_completions":
+        choices = response_data.get("choices", [])
+        if choices:
+            message = choices[0].get("message", {})
+            content = message.get("content", "")
+            if isinstance(content, str):
+                return content.strip()
+            if isinstance(content, list):
+                parts = []
+                for item in content:
+                    text = item.get("text")
+                    if text:
+                        parts.append(text)
+                return "\n".join(parts).strip()
+
+    raise RuntimeError("Could not extract text from API response")
 
 
 def generate_lyrics(settings: Settings, prompt: str) -> str:
-    client = build_client(settings)
-    response = client.responses.create(
-        model=settings.model,
-        temperature=settings.temperature,
-        max_output_tokens=settings.max_tokens,
-        input=prompt,
+    payload = build_payload(settings, prompt)
+    body = json.dumps(payload).encode("utf-8")
+    api_request = request.Request(
+        settings.api_url,
+        data=body,
+        headers=build_headers(settings),
+        method="POST",
     )
-    text = response.output_text.strip()
+
+    try:
+        with request.urlopen(api_request) as response:
+            response_data = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"API request failed with status {exc.code}: {detail}") from exc
+    except error.URLError as exc:
+        raise RuntimeError(f"Could not reach API: {exc.reason}") from exc
+
+    text = extract_response_text(settings, response_data)
     if not text:
         raise RuntimeError("Model returned an empty response")
     return text
