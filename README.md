@@ -27,3 +27,4 @@ Projekt stavi na trech vrstvach:
 
 Prvni verze je pripravena jako zaklad pro dalsi rozvoj a nahrani na GitHub.
 # rapberg-cz
+# rapberg-cz
