@@ -1,0 +1,20 @@
+Vytvor originalni cesky rapovy text pro projekt Rapberg CZ.
+
+Pozadavky:
+- tematicky navazuj na cesky a prazsky rap
+- kombinuj historii rapu, filozofii hlasu a mestskou pamet
+- zachovej hudebnost, obrazy, vnitrni napeti a kulturni presah
+- text musi byt puvodni a nesmi kopirovat konkretni existujici skladby
+- vrat vystup v markdownu
+
+Pozadovana struktura:
+1. Nazev tracku jako nadpis prvni urovne
+2. Kratky uvod o tematu tracku
+3. Oznacene sekce jako Intro, Verse 1, Hook, Verse 2, Outro
+4. Na konci kratka cast "Metadata" s body:
+   - datum
+   - tema
+   - ton
+   - klicove motivy
+
+Vyhni se prazdnym frazim. Bud konkretni, obrazny a rytmicky.

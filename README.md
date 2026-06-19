@@ -26,6 +26,42 @@ Projekt stavi na trech vrstvach:
 ## Stav
 
 Prvni verze je pripravena jako zaklad pro dalsi rozvoj a nahrani na GitHub.
-# rapberg-cz
-# rapberg-cz
-# rapberg-cz
+
+## Automaticke generovani
+
+Repo obsahuje i jednoduchy generator, ktery umi pravidelne vytvaret nove texty pres OpenAI API a automaticky je commitovat a pushovat do tohoto repozitare.
+
+### Nastaveni
+
+1. Nainstaluj zavislosti:
+	`pip install -r requirements.txt`
+2. Zkopiruj `.env.example` do `.env` nebo nastav promenne primo v shellu.
+3. Ujisti se, ze mas v gitu nastaveny `user.name` a `user.email`.
+
+Minimalni promenne:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+
+Volitelne promenne:
+
+- `OPENAI_BASE_URL`
+- `RAPBERG_INTERVAL_SECONDS`
+- `RAPBERG_OUTPUT_DIR`
+- `RAPBERG_GIT_BRANCH`
+
+### Spusteni
+
+Jedno vygenerovani bez pushovani:
+
+`python3 automation/generate_and_push.py --once --dry-run`
+
+Jedno vygenerovani s commitem a pushem:
+
+`python3 automation/generate_and_push.py --once`
+
+Nepretrzity rezim:
+
+`python3 automation/generate_and_push.py`
+
+Generator uklada nove texty do `lyrics/generated/`.
