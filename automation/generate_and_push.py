@@ -18,6 +18,9 @@ class Settings:
     api_auth_token: str
     api_auth_header: str
     api_auth_scheme: str
+    api_style: str
+    api_version: str
+    deployment: str | None
     model: str
     repo_path: Path
     output_dir: Path
@@ -63,6 +66,9 @@ def load_settings() -> Settings:
         api_auth_token=env("RAPBERG_API_AUTH_TOKEN"),
         api_auth_header=env("RAPBERG_API_AUTH_HEADER", "Authorization"),
         api_auth_scheme=os.getenv("RAPBERG_API_AUTH_SCHEME", "Bearer"),
+        api_style=os.getenv("RAPBERG_API_STYLE", "openai_compatible"),
+        api_version=os.getenv("RAPBERG_API_VERSION", "2024-10-21"),
+        deployment=os.getenv("RAPBERG_DEPLOYMENT") or None,
         model=env("RAPBERG_MODEL", "gpt-5.4"),
         repo_path=repo_path,
         output_dir=output_dir,
@@ -89,7 +95,8 @@ def load_dotenv(env_path: Path) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip())
+        cleaned = value.strip().strip('"').strip("'")
+        os.environ.setdefault(key.strip(), cleaned)
 
 
 def build_headers(settings: Settings) -> dict[str, str]:
@@ -103,17 +110,50 @@ def build_headers(settings: Settings) -> dict[str, str]:
     return headers
 
 
+def build_request_url(settings: Settings) -> str:
+    base_url = settings.api_url.rstrip("/")
+
+    if settings.api_style == "azure_openai":
+        deployment = settings.deployment or settings.model
+        resource_root = base_url
+        if resource_root.endswith("/openai/v1"):
+            resource_root = resource_root[: -len("/openai/v1")]
+        elif "/openai/deployments/" in resource_root:
+            resource_root = resource_root.split("/openai/deployments/", 1)[0]
+        elif resource_root.endswith("/openai"):
+            resource_root = resource_root[: -len("/openai")]
+        if settings.request_format == "chat_completions":
+            return (
+                f"{resource_root}/openai/deployments/{deployment}/chat/completions"
+                f"?api-version={settings.api_version}"
+            )
+        if settings.request_format == "responses":
+            return (
+                f"{resource_root}/openai/deployments/{deployment}/responses"
+                f"?api-version={settings.api_version}"
+            )
+
+    if settings.request_format == "responses" and not base_url.endswith("/responses"):
+        return f"{base_url}/responses"
+    if settings.request_format == "chat_completions" and not base_url.endswith("/chat/completions"):
+        return f"{base_url}/chat/completions"
+    return base_url
+
+
 def build_payload(settings: Settings, prompt: str) -> dict:
     if settings.request_format == "responses":
-        return {
+        payload = {
             "model": settings.model,
             "input": prompt,
             "temperature": settings.temperature,
             "max_output_tokens": settings.max_tokens,
         }
+        if settings.api_style == "azure_openai":
+            payload.pop("model", None)
+        return payload
 
     if settings.request_format == "chat_completions":
-        return {
+        payload = {
             "model": settings.model,
             "messages": [
                 {
@@ -124,6 +164,9 @@ def build_payload(settings: Settings, prompt: str) -> dict:
             "temperature": settings.temperature,
             "max_tokens": settings.max_tokens,
         }
+        if settings.api_style == "azure_openai":
+            payload.pop("model", None)
+        return payload
 
     raise RuntimeError(
         "Unsupported RAPBERG_REQUEST_FORMAT. Use 'chat_completions' or 'responses'."
@@ -165,7 +208,7 @@ def generate_lyrics(settings: Settings, prompt: str) -> str:
     payload = build_payload(settings, prompt)
     body = json.dumps(payload).encode("utf-8")
     api_request = request.Request(
-        settings.api_url,
+        build_request_url(settings),
         data=body,
         headers=build_headers(settings),
         method="POST",

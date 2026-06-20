@@ -48,6 +48,9 @@ Volitelne promenne:
 
 - `RAPBERG_API_AUTH_HEADER`
 - `RAPBERG_API_AUTH_SCHEME`
+- `RAPBERG_API_STYLE`
+- `RAPBERG_API_VERSION`
+- `RAPBERG_DEPLOYMENT`
 - `RAPBERG_REQUEST_FORMAT`
 - `RAPBERG_INTERVAL_SECONDS`
 - `RAPBERG_OUTPUT_DIR`
@@ -57,6 +60,11 @@ Podporovane formaty requestu:
 
 - `chat_completions` pro endpointy ve stylu `/v1/chat/completions`
 - `responses` pro endpointy ve stylu `/v1/responses`
+
+Podporovane API styly:
+
+- `openai_compatible` pro bezne OpenAI kompatibilni endpointy
+- `azure_openai` pro Azure OpenAI deployment endpointy
 
 ### Spusteni
 
@@ -81,5 +89,21 @@ Priklad pro bezne OpenAI kompatibilni API:
 `RAPBERG_API_AUTH_TOKEN=tvuj-token`
 
 `RAPBERG_MODEL=tvuj-model`
+
+`RAPBERG_REQUEST_FORMAT=chat_completions`
+
+Priklad pro Azure OpenAI:
+
+`RAPBERG_API_URL=https://your-resource.openai.azure.com/openai/v1`
+
+`RAPBERG_API_AUTH_HEADER=api-key`
+
+`RAPBERG_API_AUTH_SCHEME=`
+
+`RAPBERG_API_STYLE=azure_openai`
+
+`RAPBERG_MODEL=gpt-4.1-mini`
+
+`RAPBERG_DEPLOYMENT=gpt-4.1-mini`
 
 `RAPBERG_REQUEST_FORMAT=chat_completions`
